@@ -1,0 +1,70 @@
+---
+title: "Untitled"
+author: "Rodnell Busigó"
+date: "7/2/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+```{r}
+library(readxl)
+library(ggrepel)
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+data.set1<-read_excel("C:/Users/User/Downloads/genesvsdrugs.xlsx")
+data.set1_size<-dim(data.set1)#Dimensions of data.set1
+Z_threshold<- -2.58#Setting the threshold value for Z-scores
+top_genes<- 100#To insert the top 100 genes on the table
+num2label<-10# To label the top 10 genes
+tables<-list()#Create list for tables
+data.set1_colnames<-colnames(data.set1)#Getting column names of data.set1
+
+for (column in 2:data.set1_size[2]){#For loop for columns
+  t1<-data.frame(data.set1[1],data.set1[column])#Creating tables with 2 columns. The first with the genes and the second with the specific drug with the Z-scores.
+  if(is.character(t1[,2])){
+    t1[,2]<-as.numeric(t1[,2])#Transforming Z.score column from character to numeric.
+  }
+  t1<-na.omit(t1)#Eliminate rows with NA values
+  t1<-subset(t1,t1[,2] < Z_threshold)#Subset scores that do not meet the Z-score threshold
+  t1[,2]<- abs(t1[,2])#Getting the absolute value
+  t1<-arrange(t1,desc(t1[2]))#Sort the table in descending order of Z-score
+
+  t1<-data.frame(t1[1:top_genes,])#Getting the table with only the top 100 genes
+  t1<-drop_na(t1)#Eliminate rows with NA values
+  t1[,2]<-t1[,2]-2.58
+  tables[[column]]<-t1#Store tables in list of tables
+  Genes<-t1%>%pull(Gene)#Selecting the first column of Genes
+  Z.score<-t1[,2]#Selecting the second column of Z-score
+  threshold_value<-t1[num2label,2]#Setting the threshold value to label the top genes on the graph
+  print(ggplot(data=t1, aes(x =reorder(Genes,-Z.score) , y= Z.score)) + xlab("Genes")+ ylab("SD above p=0.01")+
+  geom_point() + ggtitle(data.set1_colnames[column])+theme(axis.text.x = element_blank()) + geom_label_repel(force=150,max.overlaps=Inf,aes(label=ifelse(Z.score>= threshold_value,as.character(Genes),''))))#Print the graph with descending order of Z-score, with labeles repelling on only the values that are equal or above the 10th gene.
+
+}
+
+
+```
