@@ -1,0 +1,107 @@
+---
+title: "Untitled"
+author: "Rodnell Busigó"
+date: "7/15/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+```{r}
+
+library(tidyverse)
+library(readxl)
+library(data.table)
+library(pals)
+num2heatmap<-50
+data.set1<-read_excel("C:/Users/User/Downloads/genesvsdrugs.xlsx")
+pathway_data<-read_excel("C:/Users/User/Downloads/Genesvspathways.xlsx")
+data.set1_size<-dim(data.set1)
+Z_threshold<- -2.58
+num2label<-12
+Z.score.list<-list()#Creating empty list
+Z.score.adj.list<-list()
+for (row in 1: data.set1_size[1]){
+  t2<-data.frame(data.set1[row,1], data.set1[row,2:data.set1_size[2]])#Creating tables for each gene across all agents Z-score
+  t2[2:data.set1_size[2]]<-as.numeric(t2[2:data.set1_size[2]])
+  #t2<-na.omit(t2)
+  Z.score.list[[row]]<-t2
+  t3<-t2%>%select_if(function(col) col< Z_threshold)#Eliminating columns that not meet the threshold
+  t3_size<-dim(t3)
+    if(length(t3)!= 0){#Only do this when the table has values
+      t3[,1:t3_size[2]]<-abs(t3[,1:t3_size[2]]) + Z_threshold}
+    #Adjusting the Z-score
+     t3<- cbind(Gene=t2[1,1], t3)
+  Z.score.adj.list[[row]]<-t3
+  }#Adding it to a list
+
+z.sum.table<-data.frame(Gene=character(0), Z.score.adj.sum=numeric(0))#Creating empty data frame
+
+for (row in 1:data.set1_size[1]){
+z1<-Z.score.adj.list[row]
+z1<-data.frame(z1)
+
+if(!(z1[1,1] %in% pathway_data$`BER/SSBR` |z1[1,1] %in% pathway_data$`FA/ICL repair`|z1[1,1] %in% pathway_data$`FORK QC`|z1[1,1] %in% pathway_data$HR|z1[1,1] %in% pathway_data$MMR|z1[1,1] %in% pathway_data$NER|z1[1,1] %in% pathway_data$EJ|z1[1,1] %in% pathway_data$RER|z1[1,1] %in% pathway_data$ODR|z1[1,1] %in% pathway_data$DDR) & length(z1)>1){
+ #Only do this when the gene it is not in a specific pathway and has z-score adjusted
+z1_size<-dim(z1)
+Z.score.adj.sum<-rowSums(z1[2:z1_size[2]])#Sum of Z-score adj.
+Gene<-data.set1[row,1]
+row.gene<-data.frame(Gene,Z.score.adj.sum)#Creating data frame of gene and sum z score adj
+
+z.sum.table<-rbind(z.sum.table,row.gene)#Adding it to new table
+z.sum.table<-z.sum.table[with(z.sum.table,order(-Z.score.adj.sum)),]#Sort by a descending z-score adj sum
+}
+}
+
+top.genes.z.sum<-head(z.sum.table,num2heatmap)#Taking the top genes
+top.genes.z.sum<-top.genes.z.sum[with(top.genes.z.sum,order(Z.score.adj.sum)),]#
+top.genes.hits<-setDT(data.set1)[Gene %chin% top.genes.z.sum$Gene]#New data frame of top gene and z score across all agents
+top.genes.hits_size<-dim(top.genes.hits)
+top.genes.hits[1:top.genes.hits_size[1],]<-top.genes.hits[order(match(top.genes.hits$Gene,top.genes.z.sum$Gene)),]#Match order top genes
+
+top.genes.hits[,2:data.set1_size[2]]<-lapply(top.genes.hits[,2:data.set1_size[2]], as.character)#Setting all columns as character
+
+top.genes.hits.long<-top.genes.hits %>%
+  pivot_longer(!Gene, names_to = "Agents", values_to = "Z.score")#Making a data frame longer to have only 3 columns. This is needed to make a heatmap
+top.genes.hits.long[,3]<-lapply(top.genes.hits.long[,3], as.numeric)#Making Z-score column as numeric
+
+#range.top.genes<-range(top.genes.hits.long$Z.score)
+#upper.max<-abs(range.top.genes[1])
+#dummy.gene<-c("Gene"="dummy.gene", "Agents"="UV", "Z.score"=upper.max)
+
+#top.genes.hits.long<-rbind(dummy.gene,top.genes.hits.long)
+#top.genes.hits.long[,3]<-lapply(top.genes.hits.long[,3], as.numeric)
+
+
+top.genes.hits.long$Gene <- factor(top.genes.hits.long$Gene, levels=unique(top.genes.hits.long$Gene))#This factor step is necessary so heatmap display the same order
+top.genes.hits.long$Agents<-factor(top.genes.hits.long$Agents, levels=unique(top.genes.hits.long$Agents))
+top.genes.hits.long_size<-dim(top.genes.hits.long)
+
+ggplot(top.genes.hits.long, aes(Agents, Gene, fill=Z.score))+geom_tile()+ scale_fill_gradient2(low = "blue",high = "red")+ ggtitle("Heatmap_top_genes")+theme(axis.text.x = element_text(size=12), axis.text.y = element_text( hjust=0.95,vjust=0.2, size=12, angle=10))+ scale_x_discrete(position = "top")
+
+ggsave("Heatmaptopgenescap.png",width=35, height = 9)
+
+```
