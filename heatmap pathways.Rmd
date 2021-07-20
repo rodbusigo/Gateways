@@ -1,0 +1,50 @@
+---
+title: "Untitled"
+author: "Rodnell Busigó"
+date: "7/19/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
+```{r}
+t1<-setDT(data.set1)[Gene %chin% pathway_data$NER | Gene %chin% pathway_data$`BER/SSBR`| Gene %chin% pathway_data$`FA/ICL repair`| Gene %chin% pathway_data$`FORK QC`| Gene %chin% pathway_data$HR| Gene %chin% pathway_data$MMR| Gene %chin% pathway_data$EJ| Gene %chin% pathway_data$RER| Gene %chin% pathway_data$ODR| Gene %chin% pathway_data$DDR]#Creating data frame with all genes pathways
+
+
+t1[,2:data.set1_size[2]]<-lapply(t1[,2:data.set1_size[2]], as.character)#Setting all columns as character
+t1<-t1 %>%
+  pivot_longer(!Gene, names_to = "Agents", values_to = "Z.score")#Making a longer data frame to do heat map
+
+t1$Pathways<-ifelse(t1$Gene %in% pathway_data$NER, "NER", ifelse(t1$Gene %in% pathway_data$`BER/SSBR`, "BER/SSBR", ifelse(t1$Gene %in% pathway_data$`FA/ICL repair`, "FA/ICL repair",ifelse(t1$Gene %in% pathway_data$`FORK QC`, "FORK QC", ifelse(t1$Gene %in% pathway_data$HR, "HR", ifelse(t1$Gene %in% pathway_data$MMR, "MMR", ifelse(t1$Gene %in% pathway_data$EJ, "EJ", ifelse(t1$Gene %in% pathway_data$RER, "RER", ifelse(t1$Gene %in% pathway_data$ODR, "ODR", ifelse(t1$Gene %in% pathway_data$DDR, "DDR", "None"))))))))))#Add another column based on which pathway it is present
+
+t1[,3]<-lapply(t1[,3], as.numeric)#Z-score as numeric
+
+t1$Agents<-factor(t1$Agents, levels=unique(t1$Agents))#Factoring agents to follow the same order in the heatmap
+ggplot(t1, aes(Gene, Agents, fill=Z.score))+geom_tile()+scale_fill_gradient2(low="blue", high = "red")+ facet_grid(~Pathways, scales = "free_x")+ ggtitle("Heatmap_top_genes")+theme(axis.text.x = element_blank(), axis.text.y = element_text( hjust=0.95,vjust=0.2, size=12))+ scale_x_discrete(position = "top")+ xlab("Pathways")
+ggsave("Heatmap.pathways.png", width = 15)
+
+```
